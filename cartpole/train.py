@@ -31,7 +31,7 @@ def train(total_timesteps: int = 100_000,
         model = PPO.load(zip_path, env=env)
     else:
         print(f"Starting fresh training run [{env_id}]")
-        model = PPO("MlpPolicy", env, verbose=1)
+        model = PPO("MlpPolicy", env, verbose=1, ent_coef=0.05)
 
     if visual:
         print("Visual mode: live render every training step")
