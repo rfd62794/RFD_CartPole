@@ -37,7 +37,7 @@ def test_danger_bonus():
 def test_waypoint_flip():
     env = CartPoleCustomEnv()
     env.reset()
-    # target_x starts at -2.0; place cart at -2.0 to trigger waypoint
+    env.target_x = -2.0  # force deterministic target for test
     fake_obs = np.array([-2.0, 0.0, 0.0, 0.0], dtype=np.float32)
     with patch.object(env, "env") as mock_env:
         mock_env.step.return_value = (fake_obs, 1.0, False, False, {})

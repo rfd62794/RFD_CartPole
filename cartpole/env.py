@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
@@ -27,11 +28,11 @@ class CartPoleCustomEnv(gym.Wrapper):
     def __init__(self, render_mode: str | None = None):
         env = gym.make("CartPole-v1", render_mode=render_mode)
         super().__init__(env)
-        self.target_x: float = -WAYPOINT_X  # start by going left
+        self.target_x: float = -WAYPOINT_X
         self.waypoints_reached: int = 0
 
     def reset(self, **kwargs):
-        self.target_x = -WAYPOINT_X
+        self.target_x = random.choice([-WAYPOINT_X, WAYPOINT_X])
         self.waypoints_reached = 0
         return self.env.reset(**kwargs)
 
