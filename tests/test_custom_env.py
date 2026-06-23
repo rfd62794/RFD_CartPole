@@ -29,8 +29,8 @@ def test_danger_bonus():
     with patch.object(env, "env") as mock_env:
         mock_env.step.return_value = (fake_obs, 1.0, False, False, {})
         obs, reward, terminated, truncated, info = env.step(0)
-    # Base reward (1.0) + danger bonus (2.0) + proximity reward (>0)
-    assert reward > 1.0 + DANGER_BONUS
+    # Base reward (1.0) + danger bonus (2.0) = 3.0 minimum
+    assert reward >= 1.0 + DANGER_BONUS
     env.close()
 
 

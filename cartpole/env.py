@@ -9,6 +9,8 @@ WAYPOINT_X  = 2.0    # target distance from center (track limit is ±2.4)
 WAYPOINT_THRESHOLD = 0.2   # within this distance = waypoint reached
 WAYPOINT_BONUS     = 10.0  # one-time reward per waypoint reached
 DANGER_BONUS       = 2.0   # per-step bonus for surviving in danger zone
+RECOVERY_SCALE     = 10.0  # reward for reducing pole angle from danger
+PROGRESS_SCALE     =  2.0  # reward for moving toward waypoint per step
 
 
 class CartPoleCustomEnv(gym.Wrapper):
@@ -18,8 +20,9 @@ class CartPoleCustomEnv(gym.Wrapper):
     1. PNR danger zone: bonus reward for surviving with pole
        between DANGER_LOW and DANGER_HIGH radians.
 
-    2. Waypoint traversal: alternating left/right targets.
-       Continuous proximity reward + bonus on arrival.
+    2. Recovery bonus: reward for reducing pole angle from danger.
+
+    3. Waypoint traversal: progress toward target per step + bonus on arrival.
 
     Observation and action spaces are unchanged from CartPole-v1.
     Termination conditions are unchanged from CartPole-v1.
@@ -30,32 +33,45 @@ class CartPoleCustomEnv(gym.Wrapper):
         super().__init__(env)
         self.target_x: float = -WAYPOINT_X
         self.waypoints_reached: int = 0
+        self._prev_cart_pos: float = 0.0
+        self._prev_pole_angle: float = 0.0
 
     def reset(self, **kwargs):
         self.target_x = random.choice([-WAYPOINT_X, WAYPOINT_X])
         self.waypoints_reached = 0
+        self._prev_cart_pos  = 0.0
+        self._prev_pole_angle = 0.0
         return self.env.reset(**kwargs)
 
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
         cart_pos, _, pole_angle, _ = obs
 
-        # 1. PNR danger zone bonus
-        abs_angle = abs(pole_angle)
+        abs_angle      = abs(pole_angle)
+        prev_abs_angle = abs(self._prev_pole_angle)
+
+        # 1. Danger zone survival bonus (unchanged)
         if DANGER_LOW <= abs_angle <= DANGER_HIGH:
             reward += DANGER_BONUS
 
-        # 2. Waypoint traversal: proximity reward
-        distance = abs(cart_pos - self.target_x)
-        reward += 1.0 / (1.0 + distance)
+        # 2. Recovery bonus — pole moving back toward vertical from danger
+        if prev_abs_angle > DANGER_LOW and abs_angle < prev_abs_angle:
+            reward += (prev_abs_angle - abs_angle) * RECOVERY_SCALE
 
-        # 2b. Waypoint reached
-        if distance < WAYPOINT_THRESHOLD:
+        # 3. Progress toward waypoint — reward direction, not position
+        prev_dist = abs(self._prev_cart_pos - self.target_x)
+        curr_dist = abs(cart_pos - self.target_x)
+        reward += (prev_dist - curr_dist) * PROGRESS_SCALE
+
+        # 4. Waypoint reached (unchanged)
+        if curr_dist < WAYPOINT_THRESHOLD:
             reward += WAYPOINT_BONUS
-            self.target_x *= -1  # flip direction
+            self.target_x *= -1
             self.waypoints_reached += 1
             info["waypoint_reached"] = True
 
-        info["target_x"] = self.target_x
+        self._prev_cart_pos   = cart_pos
+        self._prev_pole_angle = pole_angle
+        info["target_x"]          = self.target_x
         info["waypoints_reached"] = self.waypoints_reached
         return obs, reward, terminated, truncated, info
