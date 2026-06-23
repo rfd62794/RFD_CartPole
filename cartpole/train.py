@@ -1,9 +1,11 @@
 import os
+import sys
 import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
 from cartpole.logger import log_run
 from cartpole.env import CartPoleCustomEnv
+from cartpole.callbacks import VisualTrainingCallback
 
 ENV_OPTIONS = {
     "cartpole": lambda: gym.make("CartPole-v1"),
@@ -12,7 +14,9 @@ ENV_OPTIONS = {
 
 def train(total_timesteps: int = 100_000,
           model_path: str = "ppo_cartpole",
-          env_id: str = "cartpole") -> float:
+          env_id: str = "cartpole",
+          visual: bool = False,
+          render_every: int = 5_000) -> float:
 
     if env_id not in ENV_OPTIONS:
         raise ValueError(f"Unknown env_id '{env_id}'. "
@@ -29,8 +33,19 @@ def train(total_timesteps: int = 100_000,
         print(f"Starting fresh training run [{env_id}]")
         model = PPO("MlpPolicy", env, verbose=1)
 
-    model.learn(total_timesteps=total_timesteps,
-                reset_num_timesteps=not resumed)
+    callback = None
+    if visual:
+        print(f"Visual mode: rendering every {render_every} steps")
+        callback = VisualTrainingCallback(
+            env_id=env_id,
+            render_every=render_every
+        )
+
+    model.learn(
+        total_timesteps=total_timesteps,
+        reset_num_timesteps=not resumed,
+        callback=callback,
+    )
     model.save(model_path)
 
     mean_reward, std_reward = evaluate_policy(
@@ -47,7 +62,7 @@ def train(total_timesteps: int = 100_000,
     return mean_reward
 
 if __name__ == "__main__":
-    import sys
-    env_id = sys.argv[1] if len(sys.argv) > 1 else "cartpole"
+    env_id   = sys.argv[1] if len(sys.argv) > 1 else "cartpole"
+    visual   = "--visual" in sys.argv
     model_path = f"ppo_{env_id}"
-    train(env_id=env_id, model_path=model_path)
+    train(env_id=env_id, model_path=model_path, visual=visual)
