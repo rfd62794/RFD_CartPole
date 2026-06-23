@@ -46,6 +46,15 @@ class CartPoleCustomEnv(gym.Wrapper):
         self._last_action = 0
         return self.env.reset(**kwargs)
 
+    def _reset_wrapper_terminated(self):
+        env = self.env
+        while env is not None:
+            if hasattr(env, "_terminated"):
+                env._terminated = False
+            if hasattr(env, "_truncated"):
+                env._truncated = False
+            env = getattr(env, "env", None)
+
     def step(self, action):
         self._last_action = action
         obs, reward, terminated, truncated, info = self.env.step(action)
@@ -64,6 +73,7 @@ class CartPoleCustomEnv(gym.Wrapper):
             # Override position-based death — only die if pole falls
             if terminated and abs_angle <= 0.2095:
                 terminated = False
+                self._reset_wrapper_terminated()
 
             # Penalty proportional to distance off-screen
             overshoot = max(0.0, abs(cart_pos) - 2.4)
