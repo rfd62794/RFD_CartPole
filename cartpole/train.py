@@ -5,11 +5,10 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
 from cartpole.logger import log_run
 from cartpole.env import CartPoleCustomEnv
-from cartpole.callbacks import VisualTrainingCallback
 
 ENV_OPTIONS = {
-    "cartpole": lambda: gym.make("CartPole-v1"),
-    "custom":   lambda: CartPoleCustomEnv(),
+    "cartpole": lambda render_mode=None: gym.make("CartPole-v1", render_mode=render_mode),
+    "custom":   lambda render_mode=None: CartPoleCustomEnv(render_mode=render_mode),
 }
 
 def train(total_timesteps: int = 100_000,
@@ -22,7 +21,8 @@ def train(total_timesteps: int = 100_000,
         raise ValueError(f"Unknown env_id '{env_id}'. "
                          f"Options: {list(ENV_OPTIONS)}")
 
-    env = ENV_OPTIONS[env_id]()
+    render_mode = "human" if visual else None
+    env = ENV_OPTIONS[env_id](render_mode=render_mode)
     zip_path = f"{model_path}.zip"
     resumed = os.path.exists(zip_path)
 
@@ -33,18 +33,12 @@ def train(total_timesteps: int = 100_000,
         print(f"Starting fresh training run [{env_id}]")
         model = PPO("MlpPolicy", env, verbose=1)
 
-    callback = None
     if visual:
-        print(f"Visual mode: rendering every {render_every} steps")
-        callback = VisualTrainingCallback(
-            env_id=env_id,
-            render_every=render_every
-        )
+        print("Visual mode: live render every training step")
 
     model.learn(
         total_timesteps=total_timesteps,
         reset_num_timesteps=not resumed,
-        callback=callback,
     )
     model.save(model_path)
 
