@@ -3,10 +3,22 @@ import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
 from cartpole.logger import log_run
+from cartpole.env import CartPoleCustomEnv
 
-def train(total_timesteps: int = 50_000,
-          model_path: str = "ppo_cartpole") -> float:
-    env = gym.make("CartPole-v1")
+ENV_OPTIONS = {
+    "cartpole": lambda: gym.make("CartPole-v1"),
+    "custom":   lambda: CartPoleCustomEnv(),
+}
+
+def train(total_timesteps: int = 100_000,
+          model_path: str = "ppo_cartpole",
+          env_id: str = "cartpole") -> float:
+
+    if env_id not in ENV_OPTIONS:
+        raise ValueError(f"Unknown env_id '{env_id}'. "
+                         f"Options: {list(ENV_OPTIONS)}")
+
+    env = ENV_OPTIONS[env_id]()
     zip_path = f"{model_path}.zip"
     resumed = os.path.exists(zip_path)
 
@@ -14,7 +26,7 @@ def train(total_timesteps: int = 50_000,
         print(f"Resuming from {zip_path}")
         model = PPO.load(zip_path, env=env)
     else:
-        print("Starting fresh training run")
+        print(f"Starting fresh training run [{env_id}]")
         model = PPO("MlpPolicy", env, verbose=1)
 
     model.learn(total_timesteps=total_timesteps,
@@ -35,4 +47,7 @@ def train(total_timesteps: int = 50_000,
     return mean_reward
 
 if __name__ == "__main__":
-    train()
+    import sys
+    env_id = sys.argv[1] if len(sys.argv) > 1 else "cartpole"
+    model_path = f"ppo_{env_id}"
+    train(env_id=env_id, model_path=model_path)
