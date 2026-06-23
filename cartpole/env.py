@@ -11,6 +11,7 @@ WAYPOINT_BONUS     = 10.0  # one-time reward per waypoint reached
 DANGER_BONUS       = 2.0   # per-step bonus for surviving in danger zone
 RECOVERY_SCALE     = 10.0  # reward for reducing pole angle from danger
 PROGRESS_SCALE     =  2.0  # reward for moving toward waypoint per step
+OFFSCREEN_PENALTY  = 5.0  # per unit beyond ±2.4, per step
 
 
 class CartPoleCustomEnv(gym.Wrapper):
@@ -25,7 +26,8 @@ class CartPoleCustomEnv(gym.Wrapper):
     3. Waypoint traversal: progress toward target per step + bonus on arrival.
 
     Observation and action spaces are unchanged from CartPole-v1.
-    Termination conditions are unchanged from CartPole-v1.
+    Position-based termination is overridden — the agent survives
+    going off-screen if the pole is still upright, but incurs a penalty.
     """
 
     def __init__(self, render_mode: str | None = None):
@@ -47,7 +49,17 @@ class CartPoleCustomEnv(gym.Wrapper):
         obs, reward, terminated, truncated, info = self.env.step(action)
         cart_pos, _, pole_angle, _ = obs
 
-        abs_angle      = abs(pole_angle)
+        abs_angle = abs(pole_angle)
+
+        # Override position-based death — only die if pole falls
+        if terminated and abs_angle <= 0.2095:
+            terminated = False  # went off-screen but pole is upright — survive
+
+        # Penalty proportional to how far off-screen
+        overshoot = max(0.0, abs(cart_pos) - 2.4)
+        if overshoot > 0:
+            reward -= overshoot * OFFSCREEN_PENALTY
+
         prev_abs_angle = abs(self._prev_pole_angle)
 
         # 1. Danger zone survival bonus (unchanged)
@@ -74,4 +86,5 @@ class CartPoleCustomEnv(gym.Wrapper):
         self._prev_pole_angle = pole_angle
         info["target_x"]          = self.target_x
         info["waypoints_reached"] = self.waypoints_reached
+        info["overshoot"]         = overshoot
         return obs, reward, terminated, truncated, info
